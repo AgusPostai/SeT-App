@@ -1,0 +1,51 @@
+@import "bootstrap/dist/css/bootstrap.min.css";
+
+:root {
+  --color-primary: #007bff; /* Azul */
+  --color-secondary: #6c757d; /* Gris */
+  --color-tertiary: #17a2b8; /* Celeste */
+  --color-white: #ffffff; /* Blanco */
+  --color-red: #dc3545; /* Rojo para vencido */
+}
+
+body {
+  margin: 0;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
+    'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue',
+    sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  background-color: var(--color-white);
+  color: #333;
+}
+
+code {
+  font-family: source-code-pro, Menlo, Monaco, Consolas, 'Courier New',
+    monospace;
+}
+
+.navbar {
+  background-color: var(--color-primary);
+}
+
+.navbar-brand {
+  color: var(--color-white) !important;
+}
+
+.btn-primary {
+  background-color: var(--color-primary);
+  border-color: var(--color-primary);
+}
+
+.btn-info {
+  background-color: var(--color-tertiary);
+  border-color: var(--color-tertiary);
+}
+
+.text-danger {
+  color: var(--color-red) !important;
+}
+
+.bg-danger {
+  background-color: var(--color-red) !important;
+}

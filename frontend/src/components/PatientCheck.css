@@ -1,0 +1,18 @@
+.expired-background {
+    background-color: var(--color-red);
+    animation: flashRed 1s infinite alternate;
+    transition: background-color 0.5s ease-in-out;
+}
+
+@keyframes flashRed {
+    from { background-color: var(--color-red); }
+    to { background-color: #ffcccc; } /* Un rojo más claro para el efecto de parpadeo */
+}
+
+.expired-message {
+    font-size: 1.5em;
+    font-weight: bold;
+    text-align: center;
+    padding: 20px;
+    color: white; /* Asegura que el texto sea visible sobre el fondo rojo */
+}
