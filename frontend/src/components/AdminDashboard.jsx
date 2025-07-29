@@ -21,7 +21,7 @@ function AdminDashboard() {
 
     const fetchPatients = async () => {
         try {
-            const response = await axios.get('http://192.168.100.17:3000/patients');
+            const response = await axios.get('https://backend-still-hill-8646.fly.dev/patients');
             setPatients(response.data.data);
         } catch (error) {
             console.error('Error fetching patients:', error);
@@ -35,7 +35,7 @@ function AdminDashboard() {
     const handlePatientSubmit = async (e) => {
         e.preventDefault();
         try {
-            await axios.post('http://192.168.100.17:3000/patients', newPatient);
+            await axios.post('https://backend-still-hill-8646.fly.dev/patients', newPatient);
             alert('Paciente agregado exitosamente!');
             setNewPatient({
                 dni: '',
@@ -57,7 +57,7 @@ function AdminDashboard() {
     const handlePaymentSubmit = async (e) => {
         e.preventDefault();
         try {
-            await axios.post('http://192.168.100.17:3000/payments', newPayment);
+            await axios.post('https://backend-still-hill-8646.fly.dev/payments', newPayment);
             alert('Pago registrado exitosamente!');
             setNewPayment({
                 patient_id: '',

@@ -16,7 +16,7 @@ function PatientCheck() {
         setPatientInfo(null);
         setError('');
         try {
-            const response = await axios.get(`http://192.168.100.17:3000/patient/${dni}`);
+            const response = await axios.get(`https://backend-still-hill-8646.fly.dev/patient/${dni}`);
             setPatientInfo(response.data.data);
         } catch (err) {
             if (err.response && err.response.status === 404) {

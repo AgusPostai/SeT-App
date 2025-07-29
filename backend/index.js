@@ -1,131 +1,140 @@
 const express = require('express');
-const sqlite3 = require('sqlite3').verbose();
+const { Pool } = require('pg');
 const cors = require('cors');
 
 const app = express();
-const port = 3000;
+const port = process.env.PORT || 3000;
 
 app.use(cors());
 app.use(express.json());
 
-const db = new sqlite3.Database('./database.db', (err) => {
-    if (err) {
-        console.error('Error opening database:', err.message);
-    } else {
-        console.log('Connected to the SQLite database.');
-        db.run(`CREATE TABLE IF NOT EXISTS patients (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            dni TEXT UNIQUE NOT NULL,
-            name TEXT NOT NULL,
-            membership_start_date TEXT NOT NULL,
-            membership_duration_days INTEGER NOT NULL
-        )`);
-        db.run(`CREATE TABLE IF NOT EXISTS payments (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            patient_id INTEGER,
-            amount REAL NOT NULL,
-            payment_date TEXT NOT NULL,
-            FOREIGN KEY (patient_id) REFERENCES patients(id)
-        )`);
-    }
+// Configuration for PostgreSQL connection
+const pool = new Pool({
+    connectionString: process.env.DATABASE_URL || 'postgres://se_tu_app_db:hmQUFwQqfoqoDns@se-tu-app-db.flycast:5432/se_tu_app_db?sslmode=disable',
+    ssl: process.env.DATABASE_URL ? { rejectUnauthorized: false } : false
 });
+
+// Function to create tables if they don't exist
+const createTables = async () => {
+    const client = await pool.connect();
+    try {
+        await client.query(`
+            CREATE TABLE IF NOT EXISTS patients (
+                id SERIAL PRIMARY KEY,
+                dni TEXT UNIQUE NOT NULL,
+                name TEXT NOT NULL,
+                membership_start_date DATE NOT NULL,
+                membership_duration_days INTEGER NOT NULL
+            )
+        `);
+        await client.query(`
+            CREATE TABLE IF NOT EXISTS payments (
+                id SERIAL PRIMARY KEY,
+                patient_id INTEGER,
+                amount NUMERIC(10, 2) NOT NULL,
+                payment_date DATE NOT NULL,
+                FOREIGN KEY (patient_id) REFERENCES patients(id)
+            )
+        `);
+        console.log('Tables are successfully created or already exist.');
+    } catch (err) {
+        console.error('Error creating tables:', err.stack);
+    } finally {
+        client.release();
+    }
+};
 
 // API Routes
 // Get all patients
-app.get('/patients', (req, res) => {
-    db.all('SELECT * FROM patients', [], (err, rows) => {
-        if (err) {
-            res.status(400).json({"error": err.message});
-            return;
-        }
+app.get('/patients', async (req, res) => {
+    try {
+        const result = await pool.query('SELECT * FROM patients');
         res.json({
             "message": "success",
-            "data": rows
+            "data": result.rows
         });
-    });
+    } catch (err) {
+        res.status(500).json({"error": err.message});
+    }
 });
 
 // Get patient by DNI
-app.get('/patient/:dni', (req, res) => {
-    const dni = req.params.dni;
-    db.get('SELECT * FROM patients WHERE dni = ?', [dni], (err, row) => {
-        if (err) {
-            res.status(400).json({"error": err.message});
-            return;
-        }
-        if (!row) {
-            res.status(404).json({"message": "Patient not found"});
-            return;
+app.get('/patient/:dni', async (req, res) => {
+    const { dni } = req.params;
+    try {
+        const result = await pool.query('SELECT * FROM patients WHERE dni = $1', [dni]);
+        const patient = result.rows[0];
+
+        if (!patient) {
+            return res.status(404).json({"message": "Patient not found"});
         }
 
-        // Calculate membership status
-        const startDate = new Date(row.membership_start_date);
-        const durationDays = row.membership_duration_days;
+        const startDate = new Date(patient.membership_start_date);
+        const durationDays = patient.membership_duration_days;
         const endDate = new Date(startDate);
         endDate.setDate(startDate.getDate() + durationDays);
 
         const today = new Date();
-        today.setHours(0, 0, 0, 0); // Normalize today's date to compare only dates
+        today.setHours(0, 0, 0, 0);
 
         const isExpired = today > endDate;
-        const daysRemaining = Math.ceil((endDate - today) / (1000 * 60 * 60 * 24));
+        const daysRemaining = isExpired ? 0 : Math.ceil((endDate - today) / (1000 * 60 * 60 * 24));
 
         res.json({
             "message": "success",
             "data": {
-                ...row,
+                ...patient,
                 is_expired: isExpired,
-                days_remaining: isExpired ? 0 : daysRemaining
+                days_remaining: daysRemaining
             }
         });
-    });
+    } catch (err) {
+        res.status(500).json({"error": err.message});
+    }
 });
 
 // Add a new patient
-app.post('/patients', (req, res) => {
+app.post('/patients', async (req, res) => {
     const { dni, name, membership_start_date, membership_duration_days } = req.body;
     if (!dni || !name || !membership_start_date || !membership_duration_days) {
-        res.status(400).json({"error": "Missing required fields"});
-        return;
+        return res.status(400).json({"error": "Missing required fields"});
     }
-    db.run(`INSERT INTO patients (dni, name, membership_start_date, membership_duration_days) VALUES (?, ?, ?, ?)`,
-        [dni, name, membership_start_date, membership_duration_days],
-        function (err) {
-            if (err) {
-                res.status(400).json({"error": err.message});
-                return;
-            }
-            res.status(201).json({
-                "message": "Patient added successfully",
-                "patient_id": this.lastID
-            });
-        }
-    );
+    try {
+        const result = await pool.query(
+            'INSERT INTO patients (dni, name, membership_start_date, membership_duration_days) VALUES ($1, $2, $3, $4) RETURNING id',
+            [dni, name, membership_start_date, membership_duration_days]
+        );
+        res.status(201).json({
+            "message": "Patient added successfully",
+            "patient_id": result.rows[0].id
+        });
+    } catch (err) {
+        res.status(400).json({"error": err.message});
+    }
 });
 
 // Add a payment for a patient
-app.post('/payments', (req, res) => {
+app.post('/payments', async (req, res) => {
     const { patient_id, amount, payment_date } = req.body;
     if (!patient_id || !amount || !payment_date) {
-        res.status(400).json({"error": "Missing required fields"});
-        return;
+        return res.status(400).json({"error": "Missing required fields"});
     }
-    db.run(`INSERT INTO payments (patient_id, amount, payment_date) VALUES (?, ?, ?)`,
-        [patient_id, amount, payment_date],
-        function (err) {
-            if (err) {
-                res.status(400).json({"error": err.message});
-                return;
-            }
-            res.status(201).json({
-                "message": "Payment added successfully",
-                "payment_id": this.lastID
-            });
-        }
-    );
+    try {
+        const result = await pool.query(
+            'INSERT INTO payments (patient_id, amount, payment_date) VALUES ($1, $2, $3) RETURNING id',
+            [patient_id, amount, payment_date]
+        );
+        res.status(201).json({
+            "message": "Payment added successfully",
+            "payment_id": result.rows[0].id
+        });
+    } catch (err) {
+        res.status(400).json({"error": err.message});
+    }
 });
 
-app.listen(port, '0.0.0.0', () => {
+// Start the server
+app.listen(port, '0.0.0.0', async () => {
+    await createTables();
     console.log(`Backend server running on http://0.0.0.0:${port}`);
-    console.log(`Accessible via your local IP: http://<YOUR_LOCAL_IP_ADDRESS>:${port}`);
 });
