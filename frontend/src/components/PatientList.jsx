@@ -7,8 +7,10 @@ function PatientList() {
 
     useEffect(() => {
         const fetchPatients = async () => {
+            // Use environment variable for API URL
+            const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3000';
             try {
-                const response = await axios.get('https://backend-still-hill-8646.fly.dev/patients', {
+                const response = await axios.get(`${apiUrl}/patients`, {
                     headers: { Authorization: `Bearer ${localStorage.getItem('accessToken')}` }
                 });
                 setPatients(response.data.data);

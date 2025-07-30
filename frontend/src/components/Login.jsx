@@ -11,8 +11,10 @@ function Login() {
 
     const handleLogin = async (e) => {
         e.preventDefault();
+        // Use environment variable for API URL
+        const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3000';
         try {
-            const response = await axios.post('https://backend-still-hill-8646.fly.dev/login', {
+            const response = await axios.post(`${apiUrl}/login`, {
                 username,
                 password,
             });

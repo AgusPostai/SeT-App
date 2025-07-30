@@ -40,7 +40,7 @@ function App() {
             <div className="container mt-4">
                 <Routes>
                     {/* Ruta Pública */}
-                    <Route path="/check" element={<PatientCheck />} />
+                    <Route path="/" element={<PatientCheck />} />
                     <Route path="/login" element={<Login />} />
 
                     {/* Rutas Privadas */}
@@ -53,7 +53,7 @@ function App() {
                     </Route>
 
                     {/* Redirección por defecto */}
-                    <Route path="*" element={<Navigate to="/check" />} />
+                    <Route path="*" element={<Navigate to="/" />} />
                 </Routes>
             </div>
         </Router>

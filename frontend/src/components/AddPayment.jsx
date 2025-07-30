@@ -15,8 +15,10 @@ function AddPayment() {
 
     const handleSubmit = async (e) => {
         e.preventDefault();
+        // Use environment variable for API URL
+        const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3000';
         try {
-            await axios.post('https://backend-still-hill-8646.fly.dev/payments', payment, {
+            await axios.post(`${apiUrl}/payments`, payment, {
                 headers: { Authorization: `Bearer ${localStorage.getItem('accessToken')}` }
             });
             alert('Pago registrado exitosamente!');

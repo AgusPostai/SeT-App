@@ -6,6 +6,7 @@ function AddPatient() {
     const [patient, setPatient] = useState({
         dni: '',
         name: '',
+        lastname: '',
         membership_start_date: '',
         membership_end_date: ''
     });
@@ -14,17 +15,24 @@ function AddPatient() {
         setPatient({ ...patient, [e.target.name]: e.target.value });
     };
 
-    const handleSubmit = async (e) => {
+        const handleSubmit = async (e) => {
         e.preventDefault();
+        // Use environment variable for API URL
+        const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3000';
         try {
-            await axios.post('https://backend-still-hill-8646.fly.dev/patients', patient, {
+            await axios.post(`${apiUrl}/patients`, patient, {
                 headers: { Authorization: `Bearer ${localStorage.getItem('accessToken')}` }
             });
             alert('Paciente agregado exitosamente!');
-            setPatient({ dni: '', name: '', membership_start_date: '', membership_end_date: '' });
+            setPatient({ dni: '', name: '', lastname: '', membership_start_date: '', membership_end_date: '' });
         } catch (error) {
             console.error('Error adding patient:', error);
-            alert('Error al agregar paciente. Verifique que el DNI no esté duplicado.');
+            // More specific alert for duplicate DNI
+            if (error.response && error.response.status === 409) {
+                alert('Error al agregar paciente: El DNI ya se encuentra registrado.');
+            } else {
+                alert(error.response?.data?.error || 'Error al agregar paciente. Verifique que el DNI no está duplicado');
+            }
         }
     };
 
@@ -40,6 +48,10 @@ function AddPatient() {
                     <div className="mb-3">
                         <label htmlFor="name" className="form-label">Nombre</label>
                         <input type="text" className="form-control" id="name" name="name" value={patient.name} onChange={handleChange} required />
+                    </div>
+                    <div className="mb-3">
+                        <label htmlFor="lastname" className="form-label">Apellido</label>
+                        <input type="text" className="form-control" id="lastname" name="lastname" value={patient.lastname} onChange={handleChange} required />
                     </div>
                     <div className="mb-3">
                         <label htmlFor="membership_start_date" className="form-label">Fecha Inicio Membresía</label>
