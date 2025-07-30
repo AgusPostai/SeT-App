@@ -1,6 +1,12 @@
-
 const express = require('express');
-const { Pool } = require('pg');
+const sqlite3 = require('sqlite3').verbose();
+const db = new sqlite3.Database('./data/database.db', (err) => {
+    if (err) {
+        console.error('Error opening database', err.message);
+    } else {
+        console.log('Connected to the SQLite database.');
+    }
+});
 const cors = require('cors');
 const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
@@ -12,27 +18,21 @@ const JWT_SECRET = process.env.JWT_SECRET || 'your-super-secret-key'; // ¡Cambi
 app.use(cors());
 app.use(express.json());
 
-const pool = new Pool({
-    connectionString: process.env.DATABASE_URL || 'postgres://se_tu_app_db:hmQUFwQqfoqoDns@se-tu-app-db.flycast:5432/se_tu_app_db?sslmode=disable',
-    ssl: process.env.DATABASE_URL ? { rejectUnauthorized: false } : false
-});
-
-const createTables = async () => {
-    const client = await pool.connect();
-    try {
+const createTables = () => {
+    db.serialize(() => {
         // Tabla de Usuarios
-        await client.query(`
+        db.run(`
             CREATE TABLE IF NOT EXISTS users (
-                id SERIAL PRIMARY KEY,
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
                 username TEXT UNIQUE NOT NULL,
                 password_hash TEXT NOT NULL
             )
         `);
 
         // Tabla de Pacientes Modificada
-        await client.query(`
+        db.run(`
             CREATE TABLE IF NOT EXISTS patients (
-                id SERIAL PRIMARY KEY,
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
                 dni TEXT UNIQUE NOT NULL,
                 name TEXT NOT NULL,
                 membership_start_date DATE NOT NULL,
@@ -41,9 +41,9 @@ const createTables = async () => {
         `);
 
         // Tabla de Pagos (sin cambios)
-        await client.query(`
+        db.run(`
             CREATE TABLE IF NOT EXISTS payments (
-                id SERIAL PRIMARY KEY,
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
                 patient_id INTEGER,
                 amount NUMERIC(10, 2) NOT NULL,
                 payment_date DATE NOT NULL,
@@ -51,12 +51,10 @@ const createTables = async () => {
             )
         `);
         console.log('Tables checked/created successfully.');
-    } catch (err) {
-        console.error('Error creating tables:', err.stack);
-    } finally {
-        client.release();
-    }
+    });
 };
+
+createTables();
 
 // Middleware de autenticación
 const authenticateToken = (req, res, next) => {
@@ -79,21 +77,23 @@ app.post('/register', async (req, res) => {
     }
     try {
         const hashedPassword = await bcrypt.hash(password, 10);
-        const result = await pool.query(
-            'INSERT INTO users (username, password_hash) VALUES ($1, $2) RETURNING id',
-            [username, hashedPassword]
-        );
-        res.status(201).json({ message: 'User created successfully', userId: result.rows[0].id });
+        db.run('INSERT INTO users (username, password_hash) VALUES (?, ?)', [username, hashedPassword], function(err) {
+            if (err) {
+                return res.status(500).json({ error: err.message });
+            }
+            res.status(201).json({ message: 'User created successfully', userId: this.lastID });
+        });
     } catch (err) {
         res.status(500).json({ error: err.message });
     }
 });
 
-app.post('/login', async (req, res) => {
+app.post('/login', (req, res) => {
     const { username, password } = req.body;
-    try {
-        const result = await pool.query('SELECT * FROM users WHERE username = $1', [username]);
-        const user = result.rows[0];
+    db.get('SELECT * FROM users WHERE username = ?', [username], async (err, user) => {
+        if (err) {
+            return res.status(500).json({ error: err.message });
+        }
         if (!user) {
             return res.status(400).json({ error: 'Cannot find user' });
         }
@@ -103,20 +103,19 @@ app.post('/login', async (req, res) => {
         } else {
             res.status(401).json({ error: 'Not Allowed' });
         }
-    } catch (err) {
-        res.status(500).json({ error: err.message });
-    }
+    });
 });
 
 
 // --- Rutas Públicas ---
 
 // Get patient by DNI (para el fichaje)
-app.get('/patient/:dni', async (req, res) => {
+app.get('/patient/:dni', (req, res) => {
     const { dni } = req.params;
-    try {
-        const result = await pool.query('SELECT *, membership_end_date - CURRENT_DATE as days_remaining FROM patients WHERE dni = $1', [dni]);
-        const patient = result.rows[0];
+    db.get('SELECT *, JULIANDAY(membership_end_date) - JULIANDAY(\'now\') as days_remaining FROM patients WHERE dni = ?', [dni], (err, patient) => {
+        if (err) {
+            return res.status(500).json({ error: err.message });
+        }
 
         if (!patient) {
             return res.status(404).json({ message: "Patient not found" });
@@ -129,80 +128,90 @@ app.get('/patient/:dni', async (req, res) => {
             data: {
                 ...patient,
                 is_expired: isExpired,
-                days_remaining: isExpired ? 0 : patient.days_remaining
+                days_remaining: isExpired ? 0 : Math.floor(patient.days_remaining)
             }
         });
-    } catch (err) {
-        res.status(500).json({ error: err.message });
-    }
+    });
 });
 
 
 // --- Rutas Protegidas ---
 
 // Get all patients
-app.get('/patients', authenticateToken, async (req, res) => {
-    try {
-        const result = await pool.query('SELECT * FROM patients ORDER BY id DESC');
+app.get('/patients', authenticateToken, (req, res) => {
+    db.all('SELECT * FROM patients ORDER BY id DESC', (err, rows) => {
+        if (err) {
+            return res.status(500).json({"error": err.message});
+        }
         res.json({
             "message": "success",
-            "data": result.rows
+            "data": rows
         });
-    } catch (err) {
-        res.status(500).json({"error": err.message});
-    }
+    });
 });
 
 // Add a new patient (modificado)
-app.post('/patients', authenticateToken, async (req, res) => {
-    const { dni, name, membership_start_date, membership_end_date } = req.body;
-    if (!dni || !name || !membership_start_date || !membership_end_date) {
-        return res.status(400).json({"error": "Missing required fields"});
+app.post('/patients', authenticateToken, (req, res) => {
+    const { dni, name, lastname, membership_start_date, membership_end_date } = req.body;
+
+    if (!dni || !name || !lastname || !membership_start_date || !membership_end_date) {
+        return res.status(400).json({ error: 'Todos los campos son obligatorios' });
     }
-    try {
-        const result = await pool.query(
-            'INSERT INTO patients (dni, name, membership_start_date, membership_end_date) VALUES ($1, $2, $3, $4) RETURNING id',
-            [dni, name, membership_start_date, membership_end_date]
-        );
-        res.status(201).json({
-            "message": "Patient added successfully",
-            "patient_id": result.rows[0].id
-        });
-    } catch (err) {
-        res.status(400).json({"error": err.message});
-    }
+
+    const fullName = `${name} ${lastname}`;
+
+    db.run(
+        'INSERT INTO patients (dni, name, membership_start_date, membership_end_date) VALUES (?, ?, ?, ?)',
+        [dni, fullName, membership_start_date, membership_end_date],
+        function(err) {
+            if (err) {
+                if (err.message.includes('UNIQUE constraint failed')) {
+                    return res.status(409).json({ error: 'El DNI ya se encuentra registrado.' });
+                } else {
+                    console.error('Database error:', err.message); 
+                    return res.status(500).json({ error: 'Ocurrió un error inesperado al agregar el paciente.', details: err.message });
+                }
+            }
+            res.status(201).json({
+                message: 'Patient added successfully',
+                patient_id: this.lastID
+            });
+        }
+    );
 });
 
 // Add a payment for a patient (modificado)
-app.post('/payments', authenticateToken, async (req, res) => {
+app.post('/payments', authenticateToken, (req, res) => {
     const { dni, amount, payment_date } = req.body;
     if (!dni || !amount || !payment_date) {
         return res.status(400).json({"error": "Missing required fields"});
     }
-    try {
-        // Primero, encontrar el ID del paciente a partir del DNI
-        const patientResult = await pool.query('SELECT id FROM patients WHERE dni = $1', [dni]);
-        if (patientResult.rows.length === 0) {
+    db.get('SELECT id FROM patients WHERE dni = ?', [dni], (err, patient) => {
+        if (err) {
+            return res.status(500).json({ error: err.message });
+        }
+        if (!patient) {
             return res.status(404).json({ error: 'Patient with that DNI not found' });
         }
-        const patient_id = patientResult.rows[0].id;
-
-        const result = await pool.query(
-            'INSERT INTO payments (patient_id, amount, payment_date) VALUES ($1, $2, $3) RETURNING id',
-            [patient_id, amount, payment_date]
+        const patient_id = patient.id;
+        db.run(
+            'INSERT INTO payments (patient_id, amount, payment_date) VALUES (?, ?, ?)',
+            [patient_id, amount, payment_date],
+            function(err) {
+                if (err) {
+                    return res.status(400).json({"error": err.message});
+                }
+                res.status(201).json({
+                    "message": "Payment added successfully",
+                    "payment_id": this.lastID
+                });
+            }
         );
-        res.status(201).json({
-            "message": "Payment added successfully",
-            "payment_id": result.rows[0].id
-        });
-    } catch (err) {
-        res.status(400).json({"error": err.message});
-    }
+    });
 });
 
 
 // Start the server
-app.listen(port, '0.0.0.0', async () => {
-    await createTables();
+app.listen(port, '::', () => {
     console.log(`Backend server running on http://0.0.0.0:${port}`);
 });
