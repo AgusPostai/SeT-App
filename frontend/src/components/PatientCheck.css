@@ -1,3 +1,14 @@
+.active-background {
+    background-color: var(--color-green);
+    animation: flashGreen 1s infinite alternate;
+    transition: background-color 0.5s ease-in-out;
+}
+
+@keyframes flashGreen {
+    from { background-color: var(--color-green); }
+    to { background-color: #cce5ff; } 
+}
+
 .expired-background {
     background-color: var(--color-red);
     animation: flashRed 1s infinite alternate;

@@ -31,7 +31,7 @@ function PatientCheck() {
     };
 
     return (
-        <div className={`patient-check-container ${patientInfo && patientInfo.is_expired ? 'expired-background' : ''}`}>
+        <div className={`patient-check-container ${patientInfo ? (patientInfo.is_expired ? 'expired-background' : 'active-background') : ''}`}>
             <h2>Consulta de Membresía</h2>
             <form onSubmit={checkMembership}>
                 <div className="mb-3">

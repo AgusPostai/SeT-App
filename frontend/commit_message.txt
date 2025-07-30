@@ -1,0 +1,1 @@
+feat: set patient check-in as default route and fix refresh issue
