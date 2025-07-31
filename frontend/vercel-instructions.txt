@@ -1,0 +1,8 @@
+To deploy the frontend to Vercel, please follow these steps:
+
+1. Create a new project on Vercel.
+2. Connect the project to your GitHub repository.
+3. In the project settings, set the build command to `npm run build`.
+4. In the project settings, set the output directory to `dist`.
+5. In the project settings, add an environment variable named `VITE_API_URL` with the value `https://backend-still-hill-8646.fly.dev`.
+6. Trigger a new deployment.

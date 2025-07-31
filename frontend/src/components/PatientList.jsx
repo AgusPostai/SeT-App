@@ -10,9 +10,7 @@ function PatientList() {
             // Use environment variable for API URL
             const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3000';
             try {
-                const response = await axios.get(`${apiUrl}/patients`, {
-                    headers: { Authorization: `Bearer ${localStorage.getItem('accessToken')}` }
-                });
+                const response = await axios.get(`${apiUrl}/patients`);
                 setPatients(response.data.data);
             } catch (error) {
                 console.error('Error fetching patients:', error);

@@ -18,9 +18,7 @@ function AddPayment() {
         // Use environment variable for API URL
         const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3000';
         try {
-            await axios.post(`${apiUrl}/payments`, payment, {
-                headers: { Authorization: `Bearer ${localStorage.getItem('accessToken')}` }
-            });
+            await axios.post(`${apiUrl}/payments`, payment);
             alert('Pago registrado exitosamente!');
             setPayment({ dni: '', amount: '', payment_date: '' });
         } catch (error) {

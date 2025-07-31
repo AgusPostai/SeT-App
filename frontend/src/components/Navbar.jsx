@@ -1,23 +1,7 @@
-
-import React, { useState, useEffect } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import React from 'react';
+import { Link } from 'react-router-dom';
 
 function Navbar() {
-    const [isAuthenticated, setIsAuthenticated] = useState(false);
-    const navigate = useNavigate();
-
-    useEffect(() => {
-        const token = localStorage.getItem('accessToken');
-        setIsAuthenticated(!!token);
-    }, []);
-
-    const handleLogout = () => {
-        localStorage.removeItem('accessToken');
-        setIsAuthenticated(false);
-        navigate('/login');
-        window.location.reload();
-    };
-
     return (
         <nav className="navbar navbar-expand-lg navbar-dark bg-dark">
             <div className="container-fluid">
@@ -28,32 +12,17 @@ function Navbar() {
                 <div className="collapse navbar-collapse" id="navbarNav">
                     <ul className="navbar-nav me-auto">
                         <li className="nav-item">
-                            <Link className="nav-link" to="/check">Fichaje</Link>
+                            <Link className="nav-link" to="/">Fichaje</Link>
                         </li>
-                        {isAuthenticated && (
-                            <>
-                                <li className="nav-item">
-                                    <Link className="nav-link" to="/admin/patients">Ver Pacientes</Link>
-                                </li>
-                                <li className="nav-item">
-                                    <Link className="nav-link" to="/admin/add-patient">Agregar Paciente</Link>
-                                </li>
-                                <li className="nav-item">
-                                    <Link className="nav-link" to="/admin/add-payment">Registrar Pago</Link>
-                                </li>
-                            </>
-                        )}
-                    </ul>
-                    <ul className="navbar-nav">
-                        {isAuthenticated ? (
-                            <li className="nav-item">
-                                <button className="btn btn-link nav-link" onClick={handleLogout}>Cerrar Sesión</button>
-                            </li>
-                        ) : (
-                            <li className="nav-item">
-                                <Link className="nav-link" to="/login">Admin Login</Link>
-                            </li>
-                        )}
+                        <li className="nav-item">
+                            <Link className="nav-link" to="/admin/patients">Ver Pacientes</Link>
+                        </li>
+                        <li className="nav-item">
+                            <Link className="nav-link" to="/admin/add-patient">Agregar Paciente</Link>
+                        </li>
+                        <li className="nav-item">
+                            <Link className="nav-link" to="/admin/add-payment">Registrar Pago</Link>
+                        </li>
                     </ul>
                 </div>
             </div>

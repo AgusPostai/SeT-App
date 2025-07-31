@@ -8,6 +8,10 @@ primary_region = 'gru'
 
 [build]
 
+[env]
+  JWT_SECRET = "your-super-secret-key"
+
+
 [http_service]
   internal_port = 3000
   force_https = true

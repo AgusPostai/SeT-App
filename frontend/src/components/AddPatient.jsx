@@ -20,9 +20,7 @@ function AddPatient() {
         // Use environment variable for API URL
         const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3000';
         try {
-            await axios.post(`${apiUrl}/patients`, patient, {
-                headers: { Authorization: `Bearer ${localStorage.getItem('accessToken')}` }
-            });
+            await axios.post(`${apiUrl}/patients`, patient);
             alert('Paciente agregado exitosamente!');
             setPatient({ dni: '', name: '', lastname: '', membership_start_date: '', membership_end_date: '' });
         } catch (error) {
